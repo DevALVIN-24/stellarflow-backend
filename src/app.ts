@@ -57,7 +57,7 @@ dotenv.config();
 const app = express();
 
 
-
+const metricsRouter = require('./metrics/metricsRouter');
 const dashboardUrl =
 
   process.env.DASHBOARD_URL ||
@@ -69,7 +69,7 @@ const dashboardUrl =
 
 
 app.use(morgan("dev"));
-
+app.use('/metrics', metricsRouter);
 
 
 // Maintenance mode middleware: must be early in the chain

@@ -12,6 +12,7 @@
  */
 
 import { Request, Response } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import prisma from "../lib/prisma.js";
 
 type Granularity = "MINUTE" | "HOUR" | "DAY";
@@ -131,11 +132,7 @@ export async function getOhlcCandles(
     const upperCurrency = currency.toUpperCase();
 
     if (!granularity || typeof granularity !== "string") {
-      res.status(400).json({
-        success: false,
-        error:
-          "Query parameter `granularity` is required. Valid values: MINUTE | HOUR | DAY.",
-      });
+      sendApiError(res, 400, "BAD_REQUEST", "Query parameter `granularity` is required. Valid values: MINUTE | HOUR | DAY.");
       return;
     }
 
@@ -153,10 +150,7 @@ export async function getOhlcCandles(
 
     const toDate = to ? new Date(to as string) : now;
     if (isNaN(toDate.getTime())) {
-      res.status(400).json({
-        success: false,
-        error: "Invalid `to` date. Use ISO-8601 format.",
-      });
+      sendApiError(res, 400, "BAD_REQUEST", "Invalid `to` date. Use ISO-8601 format.");
       return;
     }
 
@@ -164,18 +158,12 @@ export async function getOhlcCandles(
       ? new Date(from as string)
       : new Date(toDate.getTime() - defaultLookback);
     if (isNaN(fromDate.getTime())) {
-      res.status(400).json({
-        success: false,
-        error: "Invalid `from` date. Use ISO-8601 format.",
-      });
+      sendApiError(res, 400, "BAD_REQUEST", "Invalid `from` date. Use ISO-8601 format.");
       return;
     }
 
     if (fromDate >= toDate) {
-      res.status(400).json({
-        success: false,
-        error: "`from` must be earlier than `to`.",
-      });
+      sendApiError(res, 400, "BAD_REQUEST", "`from` must be earlier than `to`.");
       return;
     }
 
@@ -183,10 +171,7 @@ export async function getOhlcCandles(
     if (limitParam !== undefined) {
       const parsed = parseInt(limitParam as string, 10);
       if (isNaN(parsed) || parsed < 1) {
-        res.status(400).json({
-          success: false,
-          error: "`limit` must be a positive integer.",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "`limit` must be a positive integer.");
         return;
       }
       limit = Math.min(parsed, MAX_LIMIT);
@@ -243,9 +228,6 @@ export async function getOhlcCandles(
     });
   } catch (error) {
     console.error("[AnalyticsController] getOhlcCandles error:", error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : "Internal server error",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", typeof (error instanceof Error ? error.message : "Internal server error") === "string" ? String(error instanceof Error ? error.message : "Internal server error") : undefined);
   }
 }

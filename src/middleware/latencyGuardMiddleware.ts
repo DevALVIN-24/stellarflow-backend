@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import prisma from "../lib/prisma";
 import { getMaxLatencyMs } from "../utils/envValidator";
 
@@ -54,10 +55,7 @@ export const latencyValidationMiddleware = async (
         { error: "Invalid timestamp format" },
       );
       
-      res.status(400).json({
-        success: false,
-        error: "Invalid timestamp format in payload",
-      });
+      sendApiError(res, 400, "BAD_REQUEST", "Invalid timestamp format in payload");
       return;
     }
 
@@ -119,10 +117,7 @@ export const latencyValidationMiddleware = async (
       { error: String(error) },
     );
 
-    res.status(500).json({
-      success: false,
-      error: "Latency validation failed",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Latency validation failed");
   }
 };
 

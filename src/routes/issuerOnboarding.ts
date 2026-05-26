@@ -8,6 +8,7 @@
  */
 
 import express, { Request, Response } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import {
   submitIssuerApplication,
   listPendingApplications,

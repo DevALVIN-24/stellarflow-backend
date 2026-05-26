@@ -16,6 +16,7 @@ import {
   clearBruteForceRecord,
 } from "../middleware/bruteForceMiddleware.js";
 import express from "express";
+import { sendApiError } from "../lib/apiError.js";
 
 const router = express.Router();
 

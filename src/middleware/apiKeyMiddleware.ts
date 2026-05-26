@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import prisma from "../lib/prisma";
+import { sendApiError } from "../lib/apiError.js";
 import {
   ApiScope,
   AuthenticatedApiKey,
@@ -30,19 +31,6 @@ function hashKey(rawKey: string): string {
   return crypto.createHash("sha256").update(rawKey).digest("hex");
 }
 
-/** Unified error shape so API consumers get consistent JSON */
-function sendError(
-  res: Response,
-  status: number,
-  code: string,
-  message: string,
-): void {
-  res.status(status).json({
-    success: false,
-    error: { code, message },
-  });
-}
-
 // ------------------------------------------------------------------
 // Main middleware factory
 // ------------------------------------------------------------------
@@ -69,12 +57,7 @@ export function apiKeyAuth() {
     const rawKey = req.headers["x-api-key"];
 
     if (!rawKey || typeof rawKey !== "string" || rawKey.trim() === "") {
-      sendError(
-        res,
-        401,
-        "MISSING_API_KEY",
-        "Request must include a valid X-API-Key header.",
-      );
+      sendApiError(res, 401, "MISSING_API_KEY");
       return;
     }
 
@@ -82,7 +65,7 @@ export function apiKeyAuth() {
     const required = requiredScopeForMethod(req.method);
 
     if (required === null) {
-      sendError(
+      sendApiError(
         res,
         405,
         "METHOD_NOT_ALLOWED",
@@ -117,7 +100,7 @@ export function apiKeyAuth() {
       })) as typeof apiKeyRecord;
     } catch (dbError) {
       console.error("[apiKeyAuth] DB lookup failed:", dbError);
-      sendError(
+      sendApiError(
         res,
         503,
         "SERVICE_UNAVAILABLE",
@@ -128,7 +111,7 @@ export function apiKeyAuth() {
 
     // ── 4. Key not found ─────────────────────────────────────────
     if (!apiKeyRecord) {
-      sendError(
+      sendApiError(
         res,
         401,
         "INVALID_API_KEY",
@@ -139,13 +122,13 @@ export function apiKeyAuth() {
 
     // ── 5. Key disabled ──────────────────────────────────────────
     if (!apiKeyRecord.isActive) {
-      sendError(res, 403, "API_KEY_INACTIVE", "This API key has been revoked.");
+      sendApiError(res, 403, "API_KEY_INACTIVE");
       return;
     }
 
     // ── 6. Key expired ───────────────────────────────────────────
     if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date()) {
-      sendError(
+      sendApiError(
         res,
         403,
         "API_KEY_EXPIRED",
@@ -156,7 +139,7 @@ export function apiKeyAuth() {
 
     // ── 7. Scope check ───────────────────────────────────────────
     if (!hasScope(apiKeyRecord.scopes as ApiScope[], required)) {
-      sendError(
+      sendApiError(
         res,
         403,
         "INSUFFICIENT_SCOPE",
@@ -213,7 +196,7 @@ function scopeGuard(scope: ApiScope) {
     const key = _req.apiKey;
 
     if (!key) {
-      sendError(
+      sendApiError(
         res,
         401,
         "UNAUTHENTICATED",
@@ -223,7 +206,7 @@ function scopeGuard(scope: ApiScope) {
     }
 
     if (!hasScope(key.scopes, scope)) {
-      sendError(
+      sendApiError(
         res,
         403,
         "INSUFFICIENT_SCOPE",

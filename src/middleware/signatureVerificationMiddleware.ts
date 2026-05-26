@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import nacl from "tweetnacl";
 
 /**

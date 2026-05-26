@@ -7,6 +7,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import { logger } from "../utils/logger.js";
 
 const MAX_ATTEMPTS = 5;

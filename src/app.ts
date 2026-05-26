@@ -50,6 +50,7 @@ import statusRouter from "./routes/status";
 import systemControlRouter from "./routes/systemControl";
 import systemFailoverRouter from "./routes/systemFailover";
 import analyticsRouter from "./routes/analytics";
+import { sendApiError } from "./lib/apiError.js";
 
 dotenv.config();
 
@@ -265,20 +266,12 @@ app.use(
   ) => {
     console.error("Unhandled error:", err);
 
-    res.status(500).json({
-      success: false,
-
-      error: "Internal server error",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR");
   },
 );
 
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-
-    error: "Endpoint not found",
-  });
+  sendApiError(res, 404, "ENDPOINT_NOT_FOUND");
 });
 
 export default app;

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import { signatureValidationService, AdminSignature, ConsensusRequest } from "../services/signatureValidationService";
 import { Keypair } from "@stellar/stellar-sdk";
 import { TracingService } from "../services/tracingService";
@@ -29,10 +30,7 @@ export class SystemControlController {
 
       // Validate input
       if (!reason || reason.trim().length === 0) {
-        res.status(400).json({
-          success: false,
-          error: "Halt reason is required",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Halt reason is required");
         return;
       }
 
@@ -75,10 +73,7 @@ export class SystemControlController {
       });
     } catch (error) {
       console.error("[SystemControl] Failed to initiate halt request:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to create halt request",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to create halt request");
     }
   }
 
@@ -92,10 +87,7 @@ export class SystemControlController {
 
       // Validate input
       if (!version || version.trim().length === 0) {
-        res.status(400).json({
-          success: false,
-          error: "Upgrade version is required",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Upgrade version is required");
         return;
       }
 
@@ -148,10 +140,7 @@ export class SystemControlController {
       });
     } catch (error) {
       console.error("[SystemControl] Failed to initiate upgrade request:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to create upgrade request",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to create upgrade request");
     }
   }
 
@@ -166,18 +155,12 @@ export class SystemControlController {
 
       // Validate input
       if (!consensusId || isNaN(Number(consensusId))) {
-        res.status(400).json({
-          success: false,
-          error: "Valid consensus ID is required",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Valid consensus ID is required");
         return;
       }
 
       if (!signature || signature.trim().length === 0) {
-        res.status(400).json({
-          success: false,
-          error: "Signature is required",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Signature is required");
         return;
       }
 
@@ -221,10 +204,7 @@ export class SystemControlController {
       });
     } catch (error) {
       console.error("[SystemControl] Failed to add signature:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to add signature",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to add signature");
     }
   }
 
@@ -238,10 +218,7 @@ export class SystemControlController {
 
       // Validate input
       if (!consensusId || isNaN(Number(consensusId))) {
-        res.status(400).json({
-          success: false,
-          error: "Valid consensus ID is required",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Valid consensus ID is required");
         return;
       }
 
@@ -255,10 +232,7 @@ export class SystemControlController {
 
       if (!validation.canExecute) {
         TracingService.finishSpan(span, new Error(validation.message));
-        res.status(400).json({
-          success: false,
-          error: validation.message,
-        });
+        sendApiError(res, 400, "BAD_REQUEST", typeof (validation.message) === "string" ? String(validation.message) : undefined);
         return;
       }
 
@@ -269,10 +243,7 @@ export class SystemControlController {
 
       if (!consensus) {
         TracingService.finishSpan(span, new Error("Consensus request not found"));
-        res.status(404).json({
-          success: false,
-          error: "Consensus request not found",
-        });
+        sendApiError(res, 404, "NOT_FOUND", "Consensus request not found");
         return;
       }
 
@@ -324,10 +295,7 @@ export class SystemControlController {
       });
     } catch (error) {
       console.error("[SystemControl] Failed to execute consensus:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to execute consensus",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to execute consensus");
     }
   }
 
@@ -347,10 +315,7 @@ export class SystemControlController {
       });
     } catch (error) {
       console.error("[SystemControl] Failed to get pending requests:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to retrieve pending requests",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to retrieve pending requests");
     }
   }
 
@@ -362,10 +327,7 @@ export class SystemControlController {
       const { consensusId } = req.params;
 
       if (!consensusId || isNaN(Number(consensusId))) {
-        res.status(400).json({
-          success: false,
-          error: "Valid consensus ID is required",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Valid consensus ID is required");
         return;
       }
 
@@ -374,10 +336,7 @@ export class SystemControlController {
       );
 
       if (!consensus) {
-        res.status(404).json({
-          success: false,
-          error: "Consensus request not found",
-        });
+        sendApiError(res, 404, "NOT_FOUND", "Consensus request not found");
         return;
       }
 
@@ -387,10 +346,7 @@ export class SystemControlController {
       });
     } catch (error) {
       console.error("[SystemControl] Failed to get consensus details:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to retrieve consensus details",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to retrieve consensus details");
     }
   }
 

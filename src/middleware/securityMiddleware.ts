@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import { logger } from "../utils/logger";
 
 // Regexes to detect SQLi and XSS-like patterns (including common encoded forms)
@@ -97,10 +98,7 @@ export function createStrictModeMiddleware(options: StrictOptions = {}) {
           provider,
         });
 
-        res.status(400).json({
-          success: false,
-          error: "Strict Mode: suspicious characters in query parameters",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Strict Mode: suspicious characters in query parameters");
         return;
       }
 

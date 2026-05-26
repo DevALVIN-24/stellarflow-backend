@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import prisma from "../lib/prisma";
 import { cacheMiddleware } from "../cache/CacheMiddleware";
 import { CACHE_CONFIG, CACHE_KEYS } from "../config/redis.config";
@@ -165,10 +166,7 @@ router.get(
 
       // Validate date
       if (isNaN(targetDate.getTime())) {
-        res.status(400).json({
-          success: false,
-          error: "Invalid date format. Use YYYY-MM-DD format.",
-        });
+        sendApiError(res, 400, "BAD_REQUEST", "Invalid date format. Use YYYY-MM-DD format.");
         return;
       }
 
@@ -297,10 +295,7 @@ router.get(
       });
     } catch (error) {
       console.error("Error fetching volume stats:", error);
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : "Internal server error",
-      });
+      sendApiError(res, 500, "INTERNAL_SERVER_ERROR", typeof (error instanceof Error ? error.message : "Internal server error") === "string" ? String(error instanceof Error ? error.message : "Internal server error") : undefined);
     }
   },
 );

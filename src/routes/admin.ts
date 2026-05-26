@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import fs from "fs";
 import path from "path";
 import Joi from "joi";
@@ -61,10 +62,7 @@ router.get("/reports/summary", async (req, res) => {
   const month = req.query.month as string | undefined;
 
   if (month && !/^\d{4}-\d{2}$/.test(month)) {
-    res.status(400).json({
-      success: false,
-      error: "Invalid month format. Use YYYY-MM (e.g. 2025-03).",
-    });
+    sendApiError(res, 400, "BAD_REQUEST", "Invalid month format. Use YYYY-MM (e.g. 2025-03).");
     return;
   }
 
@@ -95,11 +93,7 @@ router.get("/reports/summary", async (req, res) => {
     res.send(renderHTML(summary));
   } catch (error) {
     console.error("[AdminReports] Failed to generate report:", error);
-    res.status(500).json({
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to generate report",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", typeof (error instanceof Error ? error.message : "Failed to generate report") === "string" ? String(error instanceof Error ? error.message : "Failed to generate report") : undefined);
   }
 });
 
@@ -141,10 +135,7 @@ router.post("/reload-secret", async (req, res) => {
       const envKey =
         process.env.ORACLE_SECRET_KEY || process.env.SOROBAN_ADMIN_SECRET;
       if (!envKey) {
-        return res.status(500).json({
-          success: false,
-          error: "Failed to reload secret key",
-        });
+        return sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to reload secret key");
       }
       updateSecretKey(envKey, "admin-endpoint");
     }
@@ -160,16 +151,10 @@ router.post("/reload-secret", async (req, res) => {
       message === "Invalid Stellar secret key format";
 
     if (isValidationError) {
-      return res.status(400).json({
-        success: false,
-        error: message,
-      });
+      return sendApiError(res, 400, "BAD_REQUEST", typeof (message) === "string" ? String(message) : undefined);
     }
 
-    return res.status(500).json({
-      success: false,
-      error: "Failed to reload secret key",
-    });
+    return sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to reload secret key");
   }
 });
 
@@ -289,10 +274,7 @@ router.put("/rate-limit", async (req, res) => {
     );
   } catch (err) {
     console.error("[AdminRateLimit] Failed to persist config.json:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Rate-limit updated in memory but failed to persist to disk",
-    });
+    return sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Rate-limit updated in memory but failed to persist to disk");
   }
 
   console.info(
@@ -330,10 +312,7 @@ router.post("/rate-limit/whitelist/refresh", async (_req, res) => {
     });
   } catch (err) {
     console.error("[AdminRateLimit] Whitelist refresh failed:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Failed to refresh whitelist cache",
-    });
+    return sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to refresh whitelist cache");
   }
 });
 

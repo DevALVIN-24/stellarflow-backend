@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { sendApiError } from "../lib/apiError.js";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -83,10 +84,7 @@ export const getRelayerRegistry = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[Admin] Failed to fetch relayer registry:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch relayer registry",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to fetch relayer registry");
   }
 };
 
@@ -99,10 +97,7 @@ export const getRelayerRegistryById = async (req: Request, res: Response) => {
     const relayerId = parseInt(req.params.relayerId);
 
     if (isNaN(relayerId)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid relayer ID",
-      });
+      return sendApiError(res, 400, "BAD_REQUEST", "Invalid relayer ID");
     }
 
     const registry = await prisma.relayerRegistry.findUnique({
@@ -120,10 +115,7 @@ export const getRelayerRegistryById = async (req: Request, res: Response) => {
     });
 
     if (!registry) {
-      return res.status(404).json({
-        success: false,
-        error: "Relayer registry entry not found",
-      });
+      return sendApiError(res, 404, "NOT_FOUND", "Relayer registry entry not found");
     }
 
     res.json({
@@ -132,10 +124,7 @@ export const getRelayerRegistryById = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[Admin] Failed to fetch relayer registry by ID:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch relayer registry entry",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to fetch relayer registry entry");
   }
 };
 
@@ -161,19 +150,13 @@ export const upsertRelayerRegistry = async (req: Request, res: Response) => {
     });
 
     if (!relayer) {
-      return res.status(404).json({
-        success: false,
-        error: "Relayer not found",
-      });
+      return sendApiError(res, 404, "NOT_FOUND", "Relayer not found");
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid email format",
-      });
+      return sendApiError(res, 400, "BAD_REQUEST", "Invalid email format");
     }
 
     // Check if this is an update or create
@@ -240,10 +223,7 @@ export const upsertRelayerRegistry = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[Admin] Failed to upsert relayer registry:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to create/update relayer registry entry",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to create/update relayer registry entry");
   }
 };
 
@@ -256,10 +236,7 @@ export const deleteRelayerRegistry = async (req: Request, res: Response) => {
     const relayerId = parseInt(req.params.relayerId);
 
     if (isNaN(relayerId)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid relayer ID",
-      });
+      return sendApiError(res, 400, "BAD_REQUEST", "Invalid relayer ID");
     }
 
     // Check if registry entry exists
@@ -276,10 +253,7 @@ export const deleteRelayerRegistry = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: "Relayer registry entry not found",
-      });
+      return sendApiError(res, 404, "NOT_FOUND", "Relayer registry entry not found");
     }
 
     // Log audit event before deletion
@@ -312,9 +286,6 @@ export const deleteRelayerRegistry = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[Admin] Failed to delete relayer registry:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to delete relayer registry entry",
-    });
+    sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to delete relayer registry entry");
   }
 };

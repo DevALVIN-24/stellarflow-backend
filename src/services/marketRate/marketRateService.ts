@@ -19,6 +19,10 @@ import { normalizeDateToUTC } from "../../utils/timeUtils";
 import { sanityCheckService } from "../sanityCheckService";
 import { appConfig } from "../../config/configWatcher";
 import { isLockdownEnabled } from "../../state/appState";
+import axios from "axios";
+import { createFetcherLogger } from "../../utils/logger";
+import { OUTGOING_HTTP_TIMEOUT_MS } from "../../utils/httpTimeout";
+import { checkCrossPairConsistency } from "../../logic/crossPairArbitrageDetection";
 
 dotenv.config();
 
@@ -40,6 +44,7 @@ export class MarketRateService {
     reviewId: number;
   }> = [];
   private batchTimeout: any = null;
+  private readonly crossPairLogger = createFetcherLogger('CrossPairArbitrage');
 
   private get CACHE_DURATION_MS() {
     return appConfig.cacheDurationMs;
@@ -229,6 +234,11 @@ export class MarketRateService {
           stdDev: anomalyCheck.stdDev,
           timestamp: rate.timestamp,
         });
+      }
+
+      // Cross-pair arbitrage detection (NGN only)
+      if (normalizedCurrency === 'NGN') {
+        void this.runCrossPairCheck(rate.rate);
       }
 
       if (!reviewAssessment.manualReviewRequired) {
@@ -695,5 +705,48 @@ export class MarketRateService {
         );
       }
     });
+  }
+
+  private async runCrossPairCheck(ngnXlmRate: number): Promise<void> {
+    try {
+      const response = await axios.get(
+        'https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd',
+        {
+          timeout: OUTGOING_HTTP_TIMEOUT_MS,
+          headers: { 'User-Agent': 'StellarFlow-Oracle/1.0' },
+        },
+      );
+      const xlmUsd: unknown = response.data?.stellar?.usd;
+      if (typeof xlmUsd !== 'number' || xlmUsd <= 0) return;
+
+      // Derive NGN/USD reference from the same CoinGecko data
+      const ngnUsdReference = ngnXlmRate / xlmUsd;
+
+      const result = checkCrossPairConsistency(ngnXlmRate, xlmUsd, ngnUsdReference);
+
+      if (result.flagged) {
+        this.crossPairLogger.warn(
+          `⚠️ CROSS-PAIR ARBITRAGE DETECTED: NGN deviation ${result.deviationPercent.toFixed(2)}% exceeds threshold`,
+          {
+            ngnXlmRate,
+            xlmUsdRate: xlmUsd,
+            impliedRate: result.impliedRate,
+            directRate: result.directRate,
+            deviationPercent: result.deviationPercent,
+          },
+        );
+      } else {
+        this.crossPairLogger.debug('✅ Cross-pair consistency check passed for NGN', {
+          ngnXlmRate,
+          xlmUsdRate: xlmUsd,
+          impliedRate: result.impliedRate,
+          deviationPercent: result.deviationPercent,
+        });
+      }
+    } catch (error) {
+      this.crossPairLogger.warn('Cross-pair check failed, skipping', {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
   }
 }

@@ -11,8 +11,61 @@ import {
 import { updateSecretKey } from "../services/secretManager";
 import { appConfig } from "../config/configWatcher";
 import { refreshWhitelistCache } from "../middleware/rateLimitMiddleware";
+import {
+  getRelayerRegistry,
+  getRelayerRegistryById,
+  upsertRelayerRegistry,
+  deleteRelayerRegistry,
+} from "../controllers/adminController";
 
 const router = Router();
+
+const reloadSecretSchema = Joi.object({
+  secretKey: Joi.string().trim().pattern(/^S[A-Z2-7]{55}$/).optional().messages({
+    "string.pattern.base": "Invalid Stellar secret key format",
+    "string.empty": "Secret key must not be empty",
+  }),
+}).unknown(false);
+
+const rateLimitUpdateSchema = Joi.object({
+  windowMs: Joi.number().integer().min(1000).max(86400000).optional().messages({
+    "number.base": "windowMs must be a number",
+    "number.integer": "windowMs must be an integer",
+    "number.min": "windowMs must be at least 1000",
+    "number.max": "windowMs must be at most 86400000",
+  }),
+  maxRequests: Joi.number().integer().min(1).max(100000).optional().messages({
+    "number.base": "maxRequests must be a number",
+    "number.integer": "maxRequests must be an integer",
+    "number.min": "maxRequests must be at least 1",
+    "number.max": "maxRequests must be at most 100000",
+  }),
+  enabled: Joi.boolean().optional().messages({
+    "boolean.base": "enabled must be a boolean",
+  }),
+}).unknown(false);
+
+const relayerRegistrySchema = Joi.object({
+  relayerId: Joi.number().integer().positive().required().messages({
+    "any.required": "relayerId is required",
+    "number.base": "relayerId must be a number",
+    "number.integer": "relayerId must be an integer",
+    "number.positive": "relayerId must be positive",
+  }),
+  contactName: Joi.string().trim().min(1).required().messages({
+    "any.required": "contactName is required",
+    "string.empty": "contactName cannot be empty",
+  }),
+  email: Joi.string().trim().email().required().messages({
+    "any.required": "email is required",
+    "string.email": "Invalid email format",
+    "string.empty": "email cannot be empty",
+  }),
+  organizationName: Joi.string().trim().min(1).required().messages({
+    "any.required": "organizationName is required",
+    "string.empty": "organizationName cannot be empty",
+  }),
+}).unknown(false);
 
 /**
  * @swagger
@@ -126,6 +179,21 @@ router.get("/reports/summary", async (req, res) => {
  *         description: Unexpected error during reload
  */
 router.post("/reload-secret", async (req, res) => {
+  const { error, value } = reloadSecretSchema.validate(req.body, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
+
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: error.details[0].message,
+      details: error.details.map((d) => d.message),
+    });
+  }
+
+  req.body = value;
+
   try {
     if (req.body && req.body.secretKey !== undefined) {
       // Caller supplied a key — use it directly
@@ -203,12 +271,12 @@ router.get("/relayer-registry/:relayerId", getRelayerRegistryById);
 
 /**
  * @swagger
- * /api/admin/relayer-registry:
- *   post:
+ * /api/admin/rate-limit:
+ *   put:
  *     tags:
  *       - Admin
- *     summary: Create or update relayer registry entry
- *     description: Create or update KYC information for a relayer (Admin only)
+ *     summary: Update rate limiting configuration
+ *     description: Update global rate limiting configuration (Admin only)
  *     requestBody:
  *       required: true
  *       content:
@@ -315,5 +383,93 @@ router.post("/rate-limit/whitelist/refresh", async (_req, res) => {
     return sendApiError(res, 500, "INTERNAL_SERVER_ERROR", "Failed to refresh whitelist cache");
   }
 });
+
+/**
+ * @swagger
+ * /api/admin/relayer-registry:
+ *   post:
+ *     tags:
+ *       - Admin
+ *     summary: Create or update relayer registry entry
+ *     description: Create or update KYC information for a relayer (Admin only)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - relayerId
+ *               - contactName
+ *               - email
+ *               - organizationName
+ *             properties:
+ *               relayerId:
+ *                 type: integer
+ *                 description: The relayer ID
+ *               contactName:
+ *                 type: string
+ *                 description: Contact person's full name
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Contact email address
+ *               organizationName:
+ *                 type: string
+ *                 description: Organization name
+ *     responses:
+ *       '200':
+ *         description: Registry entry created/updated successfully
+ *       '400':
+ *         description: Validation error
+ *       '404':
+ *         description: Relayer not found
+ *       '500':
+ *         description: Internal server error
+ */
+router.post("/relayer-registry", async (req, res) => {
+  const { error, value } = relayerRegistrySchema.validate(req.body, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
+
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      error: error.details[0].message,
+      details: error.details.map((d) => d.message),
+    });
+  }
+
+  req.body = value;
+  return upsertRelayerRegistry(req, res);
+});
+
+/**
+ * @swagger
+ * /api/admin/relayer-registry/{relayerId}:
+ *   delete:
+ *     tags:
+ *       - Admin
+ *     summary: Delete relayer registry entry
+ *     description: Remove KYC information for a relayer (Admin only)
+ *     parameters:
+ *       - in: path
+ *         name: relayerId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The relayer ID
+ *     responses:
+ *       '200':
+ *         description: Registry entry deleted successfully
+ *       '400':
+ *         description: Invalid relayer ID
+ *       '404':
+ *         description: Registry entry not found
+ *       '500':
+ *         description: Internal server error
+ */
+router.delete("/relayer-registry/:relayerId", deleteRelayerRegistry);
 
 export default router;

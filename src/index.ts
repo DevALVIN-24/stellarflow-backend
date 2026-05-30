@@ -18,6 +18,7 @@ import {
   GasBalanceMonitorService,
   getGasBalanceMonitorService,
 } from "./services/gasBalanceMonitorService";
+import { relayerBalanceMonitorService } from "./services/relayerBalanceMonitor";
 import { validateEnv } from "./utils/envValidator";
 import { enableGlobalLogMasking } from "./utils/logMasker";
 import { hourlyAverageService } from "./services/hourlyAverageService";
@@ -293,6 +294,7 @@ const shutdown = async (signal: "SIGINT" | "SIGTERM"): Promise<void> => {
     multiSigSubmissionService.stop();
     // FIX 2: Optional chaining — safe to call even if service never started
     gasBalanceMonitorService?.stop();
+    relayerBalanceMonitorService.stop();
     hourlyAverageService.stop();
     priceAggregatorService.stop();
     providerSecretRotationService.stop();
@@ -445,6 +447,19 @@ httpServer.listen(PORT, async () => {
   } catch (err) {
     console.warn(
       "Gas balance monitor service not started:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  // Start background relayer balance monitor service
+  try {
+    relayerBalanceMonitorService.start().catch((err: Error) => {
+      console.error("Failed to start relayer balance monitor service:", err);
+    });
+    console.log(`⛽ Relayer balance monitor service started`);
+  } catch (err) {
+    console.warn(
+      "Relayer balance monitor service not started:",
       err instanceof Error ? err.message : err,
     );
   }
